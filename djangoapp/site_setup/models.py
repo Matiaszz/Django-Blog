@@ -9,6 +9,8 @@ class MenuLink(models.Model):
     text = models.CharField(max_length=50)
     url_or_path = models.URLField(max_length=2048)
     new_tab = models.BooleanField(default=False)
+    site_setup = models.ForeignKey('SiteSetup', on_delete=models.CASCADE,
+                                   blank=True, null=True)
 
     def __str__(self) -> str:
         return self.text
