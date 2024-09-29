@@ -368,6 +368,7 @@ html,
   grid-template-columns: repeat(auto-fill, minmax(min(32rem, 100%), 1fr));
   gap: var(--spacing-base);
 }
+
 .card {
   border: 1px solid hsl(var(--clr-gray-ltst));
   border-radius: var(--br-base);
@@ -424,4 +425,7 @@ html,
 }
 .card-action-link:hover {
   text-decoration: none;
+}
+.blog-link{
+  text-transform: capitalize;
 }
