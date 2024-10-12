@@ -1,3 +1,4 @@
+from typing import Any
 from django.core.paginator import Paginator
 from django.shortcuts import render
 from blog.models import Post, Page
@@ -8,14 +9,10 @@ from django.views.generic import ListView
 
 PER_PAGE = 9
 
-# Class Based Views (CBV)
-
 
 class PostListView(ListView):
-    model = Post
     template_name = 'blog/pages/index.html'
     context_object_name = 'posts'
-    ordering = '-id',
     paginate_by = PER_PAGE
     queryset = Post.objects.get_published()  # type: ignore
 
@@ -25,9 +22,23 @@ class PostListView(ListView):
         context.update({'page_title': 'Início - '})
         return context
 
-# Function Based View (FBV)
-# def index(request):
-#     posts = Post.objects.get_published()  # type:ignore
+
+# def created_by(request, author_id):
+#     user = User.objects.filter(id=author_id).first()
+
+#     if user is None:
+#         raise Http404()
+
+#     posts = Post.objects.get_published().filter(  # type:ignore
+#         created_by__id=author_id)
+
+#     user_full_name = user.username
+
+#     if user.first_name:
+#         user_full_name = f'{user.first_name} {user.last_name}'
+
+#     page_title = 'Posts de ' + user_full_name + ' - '
+
 #     paginator = Paginator(posts, PER_PAGE)
 #     page_number = request.GET.get("page")
 #     page_obj = paginator.get_page(page_number)
@@ -35,39 +46,44 @@ class PostListView(ListView):
 #         request,
 #         'blog/pages/index.html',
 #         {
-#             'page_title': 'Início - ',
 #             'page_obj': page_obj,
+#             'page_title': page_title,
 #         }
 #     )
 
 
-def created_by(request, author_id):
-    user = User.objects.filter(id=author_id).first()
+class CreatedByListView(PostListView):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._temp_context: dict[str, Any] = {}
 
-    if user is None:
-        raise Http404()
-
-    posts = Post.objects.get_published().filter(  # type:ignore
-        created_by__id=author_id)
-
-    user_full_name = user.username
-
-    if user.first_name:
-        user_full_name = f'{user.first_name} {user.last_name}'
-
-    page_title = 'Posts de ' + user_full_name + ' - '
-
-    paginator = Paginator(posts, PER_PAGE)
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
-    return render(
-        request,
-        'blog/pages/index.html',
-        {
-            'page_obj': page_obj,
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        user = self._temp_context['user']
+        user_full_name = user.username
+        if user.first_name:
+            user_full_name = f'{user.first_name} {user.last_name}'
+        page_title = 'Posts de ' + user_full_name + ' - '
+        ctx.update({
             'page_title': page_title,
-        }
-    )
+        })
+        return ctx
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        qs = qs.filter(created_by__id=self._temp_context['user'].id)
+        return qs
+
+    def get(self, request, *args, **kwargs):
+        author_id = self.kwargs.get('author_id')
+        user = User.objects.filter(id=author_id).first()
+        if user is None:
+            raise Http404()
+        self._temp_context.update({
+            'author_id': author_id,
+            'user': user,
+        })
+        return super().get(request, *args, **kwargs)
 
 
 def category(request, slug):
