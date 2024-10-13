@@ -1,11 +1,10 @@
 from typing import Any
-from django.core.paginator import Paginator
 from django.db.models.query import QuerySet
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from blog.models import Post, Page
 from django.db.models import Q
 from django.contrib.auth.models import User
-from django.http import Http404
+from django.http import Http404, HttpRequest, HttpResponse
 from django.views.generic import ListView
 
 PER_PAGE = 9
@@ -76,48 +75,52 @@ class CategoryListView(PostListView):
         return ctx
 
 
-def tag(request, slug):
-    posts = Post.objects.get_published().filter(  # type:ignore
-        tag__slug=slug)
+class TagListView(PostListView):
+    def get_queryset(self):
+        qs = super().get_queryset().filter(tag__slug=self.kwargs.get('slug'))
+        return qs
 
-    paginator = Paginator(posts, PER_PAGE)
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
-
-    if len(posts) == 0:
-        raise Http404()
-    page_title = 'Tag - ' + \
-        page_obj[0].tag.filter(slug=slug).first().name + ' - '
-
-    return render(
-        request,
-        'blog/pages/index.html',
-        {
-            'page_obj': page_obj,
-            'page_title': page_title,
-        }
-    )
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        tag_obj = self.object_list[0].tag.first().name  # type: ignore
+        page_title = f'Tag - {tag_obj} - '
+        ctx.update({'page_title': page_title})
+        return ctx
 
 
-def search(request):
-    search_value = request.GET.get('search', '').strip()
-    posts = Post.objects.get_published().filter(  # type:ignore
+class SearchListView(PostListView):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._search_value = ''
 
-        Q(title__icontains=search_value) |
-        Q(excerpt__icontains=search_value) |
-        Q(content__icontains=search_value)
-    )[0:9]
+    def setup(self, request: HttpRequest, *args, **kwargs) -> None:
+        self._search_value = request.GET.get('search', '').strip()
+        return super().setup(request, *args, **kwargs)
 
-    page_title = f'Pesquisa - {search_value[:30]} - '
+    def get_queryset(self) -> QuerySet[Any]:
+        search_value = self._search_value
 
-    return render(
-        request,
-        'blog/pages/index.html',
-        {
-            'page_obj': posts,
-            'page_title': page_title,
-        }
-    )
+        qs = super().get_queryset().filter(
+            Q(title__icontains=search_value) |
+            Q(excerpt__icontains=search_value) |
+            Q(content__icontains=search_value)
+        )[0:PER_PAGE]
+
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        page_title = f'Pesquisa - {self._search_value[:30]} - '
+
+        ctx.update({'page_title': page_title})
+        ctx.update({'search_value': self._search_value})
+
+        return ctx
+
+    def get(self, request, *args, **kwargs) -> HttpResponse:
+        if self._search_value == '':
+            return redirect('blog:index')
+        return super().get(request, *args, **kwargs)
 
 
 def page(request, slug):
