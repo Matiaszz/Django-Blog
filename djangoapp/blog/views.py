@@ -1,5 +1,6 @@
 from typing import Any
 from django.core.paginator import Paginator
+from django.db.models.query import QuerySet
 from django.shortcuts import render
 from blog.models import Post, Page
 from django.db.models import Q
@@ -21,35 +22,6 @@ class PostListView(ListView):
 
         context.update({'page_title': 'Início - '})
         return context
-
-
-# def created_by(request, author_id):
-#     user = User.objects.filter(id=author_id).first()
-
-#     if user is None:
-#         raise Http404()
-
-#     posts = Post.objects.get_published().filter(  # type:ignore
-#         created_by__id=author_id)
-
-#     user_full_name = user.username
-
-#     if user.first_name:
-#         user_full_name = f'{user.first_name} {user.last_name}'
-
-#     page_title = 'Posts de ' + user_full_name + ' - '
-
-#     paginator = Paginator(posts, PER_PAGE)
-#     page_number = request.GET.get("page")
-#     page_obj = paginator.get_page(page_number)
-#     return render(
-#         request,
-#         'blog/pages/index.html',
-#         {
-#             'page_obj': page_obj,
-#             'page_title': page_title,
-#         }
-#     )
 
 
 class CreatedByListView(PostListView):
@@ -86,26 +58,22 @@ class CreatedByListView(PostListView):
         return super().get(request, *args, **kwargs)
 
 
-def category(request, slug):
-    posts = Post.objects.get_published().filter(  # type:ignore
-        category__slug=slug)
+class CategoryListView(PostListView):
+    # instead of going to the "nothing found" area, redirect to a 404 page.
+    allow_empty = False
 
-    paginator = Paginator(posts, PER_PAGE)
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
+    def get_queryset(self) -> QuerySet[Any]:
+        qs = super().get_queryset().filter(
+            category__slug=self.kwargs.get('slug'))
+        return qs
 
-    if len(posts) == 0:
-        raise Http404()
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        category = self.object_list[0].category.name  # type: ignore
 
-    page_title = f'Categoria - {page_obj[0].category.name} - '
-    return render(
-        request,
-        'blog/pages/index.html',
-        {
-            'page_obj': page_obj,
-            'page_title': page_title,
-        }
-    )
+        page_title = f'Categoria - {category} - '
+        ctx.update({'page_title': page_title})
+        return ctx
 
 
 def tag(request, slug):
