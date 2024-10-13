@@ -10,12 +10,20 @@ https://docs.djangoproject.com/en/5.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
-
+from dotenv import load_dotenv
 from pathlib import Path
 import os
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR.parent / 'data' / 'web'
+
+# LOAD DOTENV
+# override = overwrites a variable IN THIS file
+#  if one with the same name is found in the .env file
+
+load_dotenv(BASE_DIR.parent / 'dotenv_files' / '.env', override=True)
 
 
 # Quick-start development settings - unsuitable for production
